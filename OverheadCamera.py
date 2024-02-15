@@ -1,10 +1,13 @@
 import math
 
-FOV_HORIZONTAL = 120
-FOV_VERTICAL = 40
+# Camera field of view in degrees
+FOV_HORIZONTAL = 65
+FOV_VERTICAL = 37
 
+# Field size in feet
 FIELD_LENGTH = 90
 FIELD_WIDTH = 46
+
 
 class OverheadCamera:
 
@@ -32,7 +35,7 @@ class OverheadCamera:
     def spherical_to_cartesian(self, spherical_point):
         z = -self.z_offset
         radius, theta, phi = spherical_point
-        x = radius * math.sin(theta * math.pi / 180) * math.cos(phi * math.pi / 180) + FIELD_LENGTH/2 - self.x_offset
+        x = radius * math.sin(theta * math.pi / 180) * math.cos(phi * math.pi / 180) + FIELD_LENGTH / 2 - self.x_offset
         y = radius * math.sin(theta * math.pi / 180) * math.sin(phi * math.pi / 180) + self.y_offset
 
         cartesian_point = (x, y, z)

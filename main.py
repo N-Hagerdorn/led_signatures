@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import socket, select
 from OverheadCamera import OverheadCamera as oc
 
 
@@ -23,7 +24,19 @@ vid.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
 vid.set(cv2.CAP_PROP_FPS, 2)
 vid.set(cv2.CAP_PROP_EXPOSURE, -8)
 
+
+host = socket.gethostname()
+print(host)
+port = 5000
+
+server_socket = socket.socket()
+server_socket.bind((host, port))
+server_socket.listen(1)
+conn, address = server_socket.accept()
+print("Connection from: " + str(address))
+
 while True:
+
 
     # Capture video from the webcam
     ret, frame = vid.read()
@@ -59,13 +72,62 @@ while True:
             cv2.drawContours(frame, [contour], -1, (255, 255, 0), 3)
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
-            LEDs.append((cX, cY))
             cv2.circle(frame, (cX, cY), 4, (0, 255, 0), -1)
 
             radius, theta, phi = cam.pixels_to_spherical(cX, cY)
             x, y, z = cam.spherical_to_cartesian((radius, theta, phi))
 
+            LEDs.append((x, y))
             cv2.putText(frame, 'LED position: ' + str(x) + ', ' + str(y), (cX, cY), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
+    '''
+    if LEDs:
+        data = str(LEDs)
+        conn.send(data.encode())
+    '''
+
+    # Split the list of captured LEDs into transmissible chunks
+    split_LEDs = [LEDs[i:i+20] for i in range(0, len(LEDs), 20)]
+    LEDs = []
+
+    '''num_packets = len(data)
+    packet = str(num_packets)
+    for i in range(num_packets):
+        packet += str(data[i])
+        print('Sending ' + packet)
+        conn.send(packet.encode())
+        packet = ''
+    '''
+    #response = conn.recv(1024).decode()
+    #if response != 'OK':
+        #print('Bad or no response')
+        #break
+
+    timeout = 1  # in seconds
+    ready_sockets, _, _ = select.select(
+        [conn], [], [], timeout
+    )
+    if ready_sockets:
+        response = conn.recv(1024).decode()
+        if response != 'OK':
+            break
+
+        num_packets = len(split_LEDs)
+        print("Num packets: " + str(num_packets))
+        data = str(num_packets) + '['
+        for i in range(num_packets):
+
+            for point in split_LEDs[i]:
+                formatted_point = '({X:.2f}, {Y:.2f})'.format(X=point[0], Y=point[1])
+                data += formatted_point + ', '
+
+            data = data[0:-2] + ']'
+
+            print('Sending ' + data)
+            conn.send(data.encode())
+            packet = ''
+    else:
+        print('No response')
+
 
 
     # Draw all circles
@@ -89,3 +151,8 @@ while True:
 vid.release()
 # Destroy all the windows
 cv2.destroyAllWindows()
+
+
+conn.close()
+
+print('Closed...')
