@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import socket, select
 from OverheadCamera import OverheadCamera as oc
-from picamera2 import Picamera2
 
 #  Define a function to perform the contour detection
 def get_all_contours(grayscale_img):
@@ -20,8 +19,10 @@ CAM_FOV_HEIGHT = 95
 cam = oc(image_size=(CAM_WIDTH, CAM_HEIGHT), midfield_offset=0, sideline_offset=2, height=53/12)
 
 # Configure the camera
-isRPi = True
+isRPi = False
 if isRPi:
+
+    from picamera2 import Picamera2
     picam2 = Picamera2()
     picam2.configure(picam2.create_preview_configuration(main={'format': 'XRGB8888', 'size': (CAM_WIDTH, CAM_HEIGHT)}))
     
