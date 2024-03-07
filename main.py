@@ -1,7 +1,10 @@
 import cv2
 import numpy as np
 import socket, select
+
+import botDetector
 from OverheadCamera import OverheadCamera as oc
+from botDetector import *
 
 #  Define a function to perform the contour detection
 def get_all_contours(grayscale_img):
@@ -10,9 +13,9 @@ def get_all_contours(grayscale_img):
     return contours
 
 
-CAM_WIDTH = 1280
-CAM_HEIGHT = 720
-CAM_FOV_WIDTH = 110
+CAM_WIDTH = 1280#4656
+CAM_HEIGHT = 720#3496
+CAM_FOV_WIDTH = 120
 CAM_FOV_HEIGHT = 95
 
 # Define the overhead camera object that performs coordinate transformations
@@ -81,10 +84,6 @@ while True:
     # Get all contours (boundaries of the white spots) in the binary image
     contours = get_all_contours(binary_m)
 
-    circles = None
-    # Try to identify circles in the image. This doesn't work very well
-    #circles = cv2.HoughCircles(gray_frame, cv2.HOUGH_GRADIENT, 1, 20, param1=100, param2=15, minRadius=0, maxRadius=40)
-
     # Get a list of the center points of all LEDs
     LEDs = []
 
@@ -98,18 +97,24 @@ while True:
             cv2.drawContours(frame, [contour], -1, (255, 255, 0), 3)
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
-            cv2.circle(frame, (cX, cY), 4, (0, 255, 0), -1)
+            cv2.circle(frame, (cX, cY), 4, (0, 255, 255), -1)
 
             radius, theta, phi = cam.pixels_to_spherical(cX, cY)
             x, y, z = cam.spherical_to_cartesian((radius, theta, phi))
 
             LEDs.append((x, y))
-            cv2.putText(frame, 'LED position: ' + str(x) + ', ' + str(y), (cX, cY), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
-    '''
-    if LEDs:
-        data = str(LEDs)
-        conn.send(data.encode())
-    '''
+            cv2.putText(frame, 'LED position: {:.2f}, {:.2f}'.format(x, y), (cX, cY), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
+
+    print('LEDs: ' + str(LEDs))
+    groups = botDetector.groupNearbyPoints(LEDs, 1)
+    X = []
+    for group in groups:
+        if len(group) < 1:
+            continue
+        print('Looking for an X in ' + str(group))
+        X = botDetector.detectX(group, 0.05)
+        break
+    LEDs = X #botDetector.consolidateGroups(groups)
 
     # Split the list of captured LEDs into transmissible chunks
     split_LEDs = [LEDs[i:i+50] for i in range(0, len(LEDs), 50)]
@@ -118,7 +123,6 @@ while True:
     num_packets = len(split_LEDs)
     print("Num packets: " + str(num_packets))
     data = ''
-    
     
     timeout = 10  # in seconds
 
@@ -136,8 +140,7 @@ while True:
         else:
             print('No response')
             break
-        
-        
+
         data = '['
         for point in split_LEDs[i]:
             formatted_point = '({X:.2f}, {Y:.2f})'.format(X=point[0], Y=point[1])
@@ -147,8 +150,6 @@ while True:
 
         print('Sending ' + data)
         conn.send(data.encode())
-        
-        
 
     ready_sockets, _, _ = select.select(
         [conn], [], [], timeout
@@ -165,21 +166,6 @@ while True:
     
     data = 'EOT'
     conn.send(data.encode())
-
-    # Draw all circles
-    if circles is not None:
-
-        circles = np.uint16(np.around(circles))
-        for i in circles[0, :]:
-            center = (i[0], i[1])
-            # circle center
-            cv2.circle(frame, center, 1, (0, 100, 100), 3)
-            # circle outline
-            radius = i[2]
-            cv2.circle(frame, center, radius, (255, 0, 255), 3)
-
-    else:
-        print('No circles')
 
     cv2.imshow('frame', frame)
 
