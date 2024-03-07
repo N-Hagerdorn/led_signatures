@@ -13,19 +13,21 @@ def get_all_contours(grayscale_img):
     return contours
 
 
-CAM_WIDTH = 1280#4656
-CAM_HEIGHT = 720#3496
-CAM_FOV_WIDTH = 120
-CAM_FOV_HEIGHT = 95
+CAM_WIDTH = 1280#4656 # Width of the camera frame in pixels
+CAM_HEIGHT = 720#3496 # Height of the camera frame in pixels
+CAM_FOV_WIDTH = 120 # Width of the camera frame in degrees, also called horizontal field of view
+CAM_FOV_HEIGHT = 95 # Height of the camera frame in degrees, also called vertical field of view
 
 # Define the overhead camera object that performs coordinate transformations
 cam = oc(image_size=(CAM_WIDTH, CAM_HEIGHT), midfield_offset=0, sideline_offset=2, height=53/12)
 
 # Configure the camera
-isRPi = False
+isRPi = False # Set to True for the Raspberry Pi, False for a Windows computer (for testing only)
 if isRPi:
-
+    # Pi-only module for operating the camera
     from picamera2 import Picamera2
+
+    # Set up the Raspberry Pi webcam
     picam2 = Picamera2()
     picam2.configure(picam2.create_preview_configuration(main={'format': 'XRGB8888', 'size': (CAM_WIDTH, CAM_HEIGHT)}))
     
@@ -33,16 +35,20 @@ if isRPi:
     print('Configuring exposure...')
     exposure = picam2.capture_metadata()['ExposureTime']
     print(exposure)
+
+    exposure_dimming = 5 # Higher dimming makes for a dimmer picture.
     
     picam2.stop()
-    picam2.set_controls({'ExposureTime': int(exposure / 10)})
+    picam2.set_controls({'ExposureTime': int(exposure / exposure_dimming)})
     
     picam2.start()
 else:
+
+    # Set up the default Windows webcam
     vid = cv2.VideoCapture(0)
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
     vid.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
-    vid.set(cv2.CAP_PROP_FPS, 2)
+    #vid.set(cv2.CAP_PROP_FPS, 2)
     vid.set(cv2.CAP_PROP_EXPOSURE, -8)
 
     if not vid.isOpened():
@@ -61,7 +67,6 @@ conn, address = server_socket.accept()
 print("Connection from: " + str(address))
 
 while True:
-
 
     # Capture video from the webcam
     if isRPi:
