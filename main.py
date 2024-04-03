@@ -1,10 +1,15 @@
 import cv2
 import numpy as np
-import socket, select
+import socket, select, time
 
-import botDetector
+import botDetector, botPatterns
 from OverheadCamera import OverheadCamera as oc
 from botDetector import *
+
+# Run parameters
+RUN_SERVER = False   # Set to True to run the server communication with the GUI client
+IS_RPI = False       # Set to True for the Raspberry Pi, False for a Windows computer (for testing only)
+
 
 #  Define a function to perform the contour detection
 def get_all_contours(grayscale_img):
@@ -22,9 +27,9 @@ CAM_FOV_HEIGHT = 95 # Height of the camera frame in degrees, also called vertica
 cam = oc(image_size=(CAM_WIDTH, CAM_HEIGHT), midfield_offset=0, sideline_offset=2, height=53/12)
 
 # Configure the camera
-isRPi = False # Set to True for the Raspberry Pi, False for a Windows computer (for testing only)
-if isRPi:
+if IS_RPI:
     # Pi-only module for operating the camera
+    # picamera2 does not need to be installed to run on a non-RPi system
     from picamera2 import Picamera2
 
     # Set up the Raspberry Pi webcam
@@ -49,27 +54,28 @@ else:
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
     vid.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
     #vid.set(cv2.CAP_PROP_FPS, 2)
-    vid.set(cv2.CAP_PROP_EXPOSURE, -8)
+    vid.set(cv2.CAP_PROP_EXPOSURE, -8)#-8)
 
     if not vid.isOpened():
         print('Cannot open camera...')
         exit()
 
-print('Starting server...')
-host = socket.gethostname()
-print(host)
-port = 5000
+if RUN_SERVER:
+    print('Starting server...')
+    host = socket.gethostname()
+    print(host)
+    port = 5000
 
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('', port))
-server_socket.listen(1)
-conn, address = server_socket.accept()
-print("Connection from: " + str(address))
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('', port))
+    server_socket.listen(1)
+    conn, address = server_socket.accept()
+    print("Connection from: " + str(address))
 
 while True:
 
     # Capture video from the webcam
-    if isRPi:
+    if IS_RPI:
         frame = picam2.capture_array()
     else:
         _, frame = vid.read()
@@ -110,80 +116,85 @@ while True:
             LEDs.append((x, y))
             cv2.putText(frame, 'LED position: {:.2f}, {:.2f}'.format(x, y), (cX, cY), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-    print('LEDs: ' + str(LEDs))
     groups = botDetector.groupNearbyPoints(LEDs, 1)
     X = []
     for group in groups:
+
         if len(group) < 1:
             continue
-        print('Looking for an X in ' + str(group))
-        X = botDetector.detectX(group, 0.05)
-        break
-    LEDs = X #botDetector.consolidateGroups(groups)
 
-    # Split the list of captured LEDs into transmissible chunks
-    split_LEDs = [LEDs[i:i+50] for i in range(0, len(LEDs), 50)]
-    LEDs = []
+        score = botDetector.detectShape(group, botPatterns.getPattern('X'))
+        if score < math.inf:
 
-    num_packets = len(split_LEDs)
-    print("Num packets: " + str(num_packets))
-    data = ''
-    
-    timeout = 10  # in seconds
+            print('Matching score: ' + str(score))
 
-    for i in range(num_packets):
-        
+    LEDs = X
+
+    # If the server is running, transmit the points to the client
+    if RUN_SERVER:
+
+        # Split the list of captured LEDs into transmissible chunks
+        split_LEDs = [LEDs[i:i+50] for i in range(0, len(LEDs), 50)]
+        LEDs = []
+
+        num_packets = len(split_LEDs)
+        print("Num packets: " + str(num_packets))
+        data = ''
+
+        timeout = 10  # in seconds
+
+        for i in range(num_packets):
+
+            ready_sockets, _, _ = select.select(
+                [conn], [], [], timeout
+            )
+            if ready_sockets:
+                response = conn.recv(256).decode()
+                if response != 'OK':
+                    print('Bad response from client')
+                    break
+
+            else:
+                print('No response')
+                break
+
+            data = '['
+            for point in split_LEDs[i]:
+                formatted_point = '({X:.2f}, {Y:.2f})'.format(X=point[0], Y=point[1])
+                data += formatted_point + ', '
+
+            data = data[0:-2] + ']'
+
+            print('Sending ' + data)
+            conn.send(data.encode())
+
         ready_sockets, _, _ = select.select(
             [conn], [], [], timeout
         )
         if ready_sockets:
             response = conn.recv(256).decode()
             if response != 'OK':
-                print('Bad response from client')            
+                print('Bad response from client')
                 break
-
+            print(response)
         else:
             print('No response')
             break
 
-        data = '['
-        for point in split_LEDs[i]:
-            formatted_point = '({X:.2f}, {Y:.2f})'.format(X=point[0], Y=point[1])
-            data += formatted_point + ', '
-
-        data = data[0:-2] + ']'
-
-        print('Sending ' + data)
+        data = 'EOT'
         conn.send(data.encode())
-
-    ready_sockets, _, _ = select.select(
-        [conn], [], [], timeout
-    )
-    if ready_sockets:
-        response = conn.recv(256).decode()
-        if response != 'OK':
-            print('Bad response from client')            
-            break
-        print(response)
-    else:
-        print('No response')
-        break
-    
-    data = 'EOT'
-    conn.send(data.encode())
 
     cv2.imshow('frame', frame)
 
 
-# Close the TCP socket
-conn.close()
+if RUN_SERVER:
+    # Close the TCP socket
+    conn.close()
 
-print('TCP socket closed...')
+    print('TCP socket closed...')
 
 # Destroy all the windows
 cv2.destroyAllWindows()
-
-
 
 # After the loop release the cap object
 vid.release()
