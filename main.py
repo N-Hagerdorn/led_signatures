@@ -18,13 +18,13 @@ def get_all_contours(grayscale_img):
     return contours
 
 
-CAM_WIDTH = 1280#4656 # Width of the camera frame in pixels
-CAM_HEIGHT = 720#3496 # Height of the camera frame in pixels
+CAM_WIDTH = 4656 # Width of the camera frame in pixels
+CAM_HEIGHT = 3496 # Height of the camera frame in pixels
 CAM_FOV_WIDTH = 120 # Width of the camera frame in degrees, also called horizontal field of view
 CAM_FOV_HEIGHT = 95 # Height of the camera frame in degrees, also called vertical field of view
 
 # Define the overhead camera object that performs coordinate transformations
-cam = oc(image_size=(CAM_WIDTH, CAM_HEIGHT), midfield_offset=0, sideline_offset=2, height=53/12)
+cam = oc(image_size=(CAM_WIDTH, CAM_HEIGHT), midfield_offset=0, sideline_offset=6 + 8/12, height=217/12)
 
 # Configure the camera
 if IS_RPI:
