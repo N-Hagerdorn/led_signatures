@@ -6,15 +6,27 @@ import botDetector, botPatterns
 from OverheadCamera import OverheadCamera as oc
 from botDetector import *
 
+
+def getPitch():
+
+    mag_x, mag_y, mag_z = sensor.magnetic
+    pitch_rad = math.atan2(mag_y, math.sqrt(mag_x ** 2 + mag_z ** 2))
+    pitch_deg = math.degrees(pitch_rad) % 360
+
+    return pitch_deg
+
 # Run parameters
-RUN_SERVER = False      # Will run a server and wait for a client connection if True
+RUN_SERVER = True      # Will run a server and wait for a client connection if True
 IS_RPI = False          # Set to True for the Raspberry Pi, False to test on a Windows computer
 DISPLAY = True          # Will only open a window to view the camera frames if this is True
 SAVE_FRAME_RATE = 4     # Frame rate to save captured images for later viewing. Will not save if set to 0 or negative.
+HAS_COMPASS = False     # If true, will attempt to use a magnetometer to find the compass heading of the field's major axis
 
+def constructDataPacket():
+    packet = SAVE_FRAME_RATE
 
 #  Define a function to perform the contour detection
-def get_all_contours(grayscale_img):
+def getAllContours(grayscale_img):
     canny = cv2.Canny(grayscale_img, 50, 240)
     contours, _ = cv2.findContours(canny, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     return contours
@@ -73,6 +85,17 @@ if IS_RPI:
     picam2.set_controls({'ExposureTime': int(exposure * exposure_factor)})
     
     picam2.start()
+
+    if HAS_COMPASS:
+        # Pi-only imports to operate the magnetometer (digital compass)
+        import board
+        import busio
+        import adafruit_lis3mdl
+        import math
+
+        # Configure the magnetometer
+        i2c = busio.I2C(board.SCL, board.SDA)
+        sensor = adafruit_lis3mdl.LIS3MDL(i2c)
 
 else:
 
@@ -166,7 +189,7 @@ def main():
         _, binary_m = cv2.threshold(gray_frame, 230, 255, cv2.THRESH_BINARY)
 
         # Get all contours (boundaries of the white spots) in the binary image
-        contours = get_all_contours(binary_m)
+        contours = getAllContours(binary_m)
 
         # Get a list of the center points of all LEDs
         LEDs = []
@@ -214,6 +237,10 @@ def main():
                 print('Matching score: ' + str(score))
 
         LEDs = X
+
+        if HAS_COMPASS:
+            angle = getPitch()
+            print('Compass heading: ' + str(angle))
 
         # If the server is running, transmit the points to the client
         if RUN_SERVER:
@@ -286,6 +313,7 @@ def main():
         # Stop recording from the Windows camera
         vid.release()
 
+    # Convert the saved images to a video
     if record:
         makeVideo(name=session_name, image_folder=session_name)
 
