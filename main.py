@@ -227,17 +227,19 @@ def main():
 
         groups = botDetector.groupNearbyPoints(LEDs, 1)
         X = []
+        best_X_score = math.inf
         for group in groups:
 
             if len(group) < 1:
                 continue
 
             score = botDetector.detectShape(group, botPatterns.getPattern('X'))
-            if score < math.inf:
-
+            if score < best_X_score:
+                X = group
+                best_X_score = score
                 print('Matching score: ' + str(score))
 
-        LEDs = X
+        LEDs = botDetector.groupCenters([X])
 
         if HAS_COMPASS:
             angle = getPitch()
