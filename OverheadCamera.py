@@ -7,14 +7,26 @@ FIELD_WIDTH = 46
 
 class OverheadCamera:
 
-    def __init__(self, field_of_view, phi, image_size, midfield_offset, sideline_offset, height):
+    def __init__(self, field_of_view, phi, image_size, midfield_offset, sideline_offset, height, bot_height):
+        """
+        Initialize the overhead camera with geometric parameters.
+        All distance parameters must be measured in feet and angle parameters in degrees.
+
+        :param field_of_view:       A tuple representing the horizontal and vertical fields of view of the camera in degrees
+        :param phi:                 The angle between the camera's line of sight and the sideline
+        :param image_size:          The resolution of the images being captured by the camera
+        :param midfield_offset:     The distance between the camera and the midfield line along the sideline axis
+        :param sideline_offset:     The distance between the camera and the sideline
+        :param height:              The height of the camera above the field
+        :param bot_height           The height of the robots being detected by the camera
+        """
         self.field_of_view = field_of_view
 
         self.image_size = image_size
 
         self.x_offset = midfield_offset
         self.y_offset = -sideline_offset
-        self.z_offset = height
+        self.z_offset = height - bot_height
 
         # Calculate the vertical angle (theta) and horizontal angle (phi) of the center of the camera's view
         max_y = sideline_offset + FIELD_WIDTH
