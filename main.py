@@ -1,8 +1,13 @@
-import cv2
-import numpy as np
-import socket, select, time, os, datetime, shutil
+import datetime
+import os
+import select
+import shutil
+import socket
+import time
 
-import botDetector, botPatterns
+import cv2
+
+import botDetector
 from OverheadCamera import OverheadCamera as oc
 from botDetector import *
 
@@ -17,7 +22,7 @@ def getPitch():
 
 # Run parameters
 RUN_SERVER = True      # Will run a server and wait for a client connection if True
-IS_RPI = False          # Set to True for the Raspberry Pi, False to test on a Windows computer
+IS_RPI = True          # Set to True for the Raspberry Pi, False to test on a Windows computer
 DISPLAY = True          # Will only open a window to view the camera frames if this is True
 SAVE_FRAME_RATE = 4     # Frame rate to save captured images for later viewing. Will not save if set to 0 or negative.
 HAS_COMPASS = False     # If true, will attempt to use a magnetometer to find the compass heading of the field's major axis
@@ -88,9 +93,9 @@ if IS_RPI:
 
     if HAS_COMPASS:
         # Pi-only imports to operate the magnetometer (digital compass)
+        import adafruit_lis3mdl
         import board
         import busio
-        import adafruit_lis3mdl
         import math
 
         # Configure the magnetometer
@@ -127,7 +132,7 @@ cam = oc(
     image_size=(CAM_WIDTH, CAM_HEIGHT),
     midfield_offset=0,
     sideline_offset=0,
-    height=4,
+    height=5,
     bot_height=0
 )
 
