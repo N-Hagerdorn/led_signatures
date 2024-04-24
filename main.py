@@ -69,7 +69,7 @@ if IS_RPI:
 
     CAM_WIDTH = 4656
     CAM_HEIGHT = 3496
-    CAM_FOV_WIDTH = 120
+    CAM_FOV_WIDTH = 110
     CAM_FOV_HEIGHT = 95
 
     # Set up the Raspberry Pi webcam
