@@ -31,7 +31,7 @@ class OverheadCamera:
         # Calculate the vertical angle (theta) and horizontal angle (phi) of the center of the camera's view
         max_y = sideline_offset + FIELD_WIDTH
         vert_fov_max = math.atan(max_y/height)
-        self.cam_theta = 180 - vert_fov_max + (self.field_of_view[1] / 2)
+        self.cam_theta = 270 - vert_fov_max + (self.field_of_view[1] / 2)
         self.cam_phi = phi
 
     def pixelsToSpherical(self, x, y):

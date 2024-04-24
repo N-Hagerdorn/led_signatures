@@ -127,8 +127,8 @@ cam = oc(
     image_size=(CAM_WIDTH, CAM_HEIGHT),
     midfield_offset=0,
     sideline_offset=0,
-    height=5,
-    bot_height=1/3
+    height=4,
+    bot_height=0
 )
 
 

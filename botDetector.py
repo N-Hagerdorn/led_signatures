@@ -188,7 +188,7 @@ def detectShape(group, pattern):
 
     # The group won't match the pattern if it doesn't contain as many LEDs as the pattern
     # Return the worst possible score
-    if len(group) != pattern_size:
+    if len(group) < pattern_size:
         return math.inf
 
     # Get the center of the group
