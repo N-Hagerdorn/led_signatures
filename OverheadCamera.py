@@ -58,3 +58,29 @@ class OverheadCamera:
 
     def pixelsToCartesian(self, x, y):
         return self.sphericalToCartesian(self.pixelsToSpherical(x, y))
+
+    def cartesianToSpherical(self, cartesian_point):
+        x, y = cartesian_point
+        x = x - FIELD_LENGTH / 2 + self.x_offset
+        y = y - self.y_offset
+        z = -self.z_offset
+        r = math.sqrt(x * x + y * y + z * z)
+        phi = math.acos(x / math.sqrt(x * x + y * y)) * 180 / math.pi
+        theta = 180 + math.atan(math.sqrt(x * x + y * y) / z) * 180 / math.pi
+
+        spherical_point = (r, theta, phi)
+        return spherical_point
+
+    def sphericalToPixels(self, spherical_point):
+        r, theta, phi = spherical_point
+
+        x = self.image_size[0] * (0.5 - (phi - self.cam_phi) / self.field_of_view[0])
+        # phi = self.cam_phi + self.field_of_view[0] * (0.5 - x / self.image_size[0])
+
+        y = self.image_size[1] * (0.5 + (theta - self.cam_theta) / self.field_of_view[1])
+        # theta = self.cam_theta + self.field_of_view[1] * (y / self.image_size[1] - 0.5)
+        # radius = -self.z_offset / math.cos(theta * math.pi / 180)
+
+        screen_point = (x, y)
+
+        return screen_point

@@ -13,22 +13,24 @@ from botDetector import *
 
 
 def getPitch():
-
     mag_x, mag_y, mag_z = sensor.magnetic
     pitch_rad = math.atan2(mag_y, math.sqrt(mag_x ** 2 + mag_z ** 2))
     pitch_deg = math.degrees(pitch_rad) % 360
 
     return pitch_deg
 
+
 # Run parameters
-RUN_SERVER = True      # Will run a server and wait for a client connection if True
-IS_RPI = True          # Set to True for the Raspberry Pi, False to test on a Windows computer
-DISPLAY = True          # Will only open a window to view the camera frames if this is True
-SAVE_FRAME_RATE = 4     # Frame rate to save captured images for later viewing. Will not save if set to 0 or negative.
-HAS_COMPASS = False     # If true, will attempt to use a magnetometer to find the compass heading of the field's major axis
+RUN_SERVER = False  # Will run a server and wait for a client connection if True
+IS_RPI = True  # Set to True for the Raspberry Pi, False to test on a Windows computer
+DISPLAY = True  # Will only open a window to view the camera frames if this is True
+SAVE_FRAME_RATE = 4  # Frame rate to save captured images for later viewing. Will not save if set to 0 or negative.
+HAS_COMPASS = False  # If true, will attempt to use a magnetometer to find the compass heading of the field's major axis
+
 
 def constructDataPacket():
     packet = SAVE_FRAME_RATE
+
 
 #  Define a function to perform the contour detection
 def getAllContours(grayscale_img):
@@ -38,7 +40,6 @@ def getAllContours(grayscale_img):
 
 
 def makeVideo(name, image_folder):
-
     images = [img for img in sorted(os.listdir(image_folder)) if img.endswith('.jpg')]
     if len(images) < 1:
         return
@@ -55,10 +56,10 @@ def makeVideo(name, image_folder):
     video.release()
 
 
-CAM_WIDTH = 4656        # Width of the camera frame in pixels
-CAM_HEIGHT = 3496       # Height of the camera frame in pixels
-CAM_FOV_WIDTH = 120     # Width of the camera frame in degrees, also called horizontal field of view
-CAM_FOV_HEIGHT = 95     # Height of the camera frame in degrees, also called vertical field of view
+CAM_WIDTH = 4656  # Width of the camera frame in pixels
+CAM_HEIGHT = 3496  # Height of the camera frame in pixels
+CAM_FOV_WIDTH = 120  # Width of the camera frame in degrees, also called horizontal field of view
+CAM_FOV_HEIGHT = 95  # Height of the camera frame in degrees, also called vertical field of view
 
 # Configure the camera
 if IS_RPI:
@@ -75,7 +76,7 @@ if IS_RPI:
     # Set up the Raspberry Pi webcam
     picam2 = Picamera2()
     picam2.configure(picam2.create_preview_configuration(main={'format': 'XRGB8888', 'size': (CAM_WIDTH, CAM_HEIGHT)}))
-    
+
     picam2.start()
     print('Configuring exposure...')
     exposure = picam2.capture_metadata()['ExposureTime']
@@ -83,12 +84,12 @@ if IS_RPI:
 
     # Factor to adjust exposure time
     # 1/12 seems to work
-    exposure_factor = 1/12
+    exposure_factor = 1 / 12
 
     # Stop the webcam and reduce exposure time, then restart the webcam
     picam2.stop()
     picam2.set_controls({'ExposureTime': int(exposure * exposure_factor)})
-    
+
     picam2.start()
 
     if HAS_COMPASS:
@@ -112,7 +113,7 @@ else:
 
     # Limit the camera exposure to detect LEDs while filtering out other light sources
     # -8 seems to work for testing
-    exposure_factor = 0#-8
+    exposure_factor = -8
 
     # Set up the default Windows webcam
     vid = cv2.VideoCapture(0)
@@ -132,10 +133,9 @@ cam = oc(
     image_size=(CAM_WIDTH, CAM_HEIGHT),
     midfield_offset=0,
     sideline_offset=0,
-    height=5,
-    bot_height=0
+    height=19+8/12,
+    bot_height=1+10/12
 )
-
 
 # Start the TCP server
 if RUN_SERVER:
@@ -155,7 +155,6 @@ if RUN_SERVER:
 
 
 def main():
-
     # Get a unique name for the recording of the session
     session_name = 'recording_' + datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
@@ -206,7 +205,6 @@ def main():
             # Get the center point of the contour
             M = cv2.moments(contour)
             if M["m00"] != 0 and cv2.contourArea(contour) > 1:
-
                 # Draw the contour
                 cv2.drawContours(frame, [contour], -1, (255, 255, 0), 3)
 
@@ -220,7 +218,8 @@ def main():
                 x, y, z = cam.pixelsToCartesian(cX, cY)
                 LEDs.append((x, y))
 
-                cv2.putText(frame, 'LED position: {:.2f}, {:.2f}'.format(x, y), (cX, cY), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                cv2.putText(frame, 'LED position: {:.2f}, {:.2f}'.format(x, y), (cX, cY), cv2.FONT_HERSHEY_PLAIN, 1,
+                            (0, 255, 0), 2, cv2.LINE_AA)
 
         if record:
             # If the current time exceeds the time at which the next frame should be captured, save the current frame
@@ -238,13 +237,20 @@ def main():
             if len(group) < 1:
                 continue
 
-            score = botDetector.detectShape(group, botPatterns.getPattern('X'))
+            score = botDetector.detectShape(group, botPatterns.getPattern('Y'))
             if score < best_X_score:
                 X = group
                 best_X_score = score
                 print('Matching score: ' + str(score))
 
         LEDs = botDetector.groupCenters([X])
+
+        if len(LEDs) > 0:
+            X_point = LEDs[0]
+            # print(X_point)
+            sphere_point = cam.cartesianToSpherical(X_point)
+            # print(sphere_point)
+            print(cam.sphericalToPixels(sphere_point))
 
         if HAS_COMPASS:
             angle = getPitch()
@@ -254,7 +260,7 @@ def main():
         if RUN_SERVER:
 
             # Split the list of captured LEDs into transmissible chunks
-            split_LEDs = [LEDs[i:i+50] for i in range(0, len(LEDs), 50)]
+            split_LEDs = [LEDs[i:i + 50] for i in range(0, len(LEDs), 50)]
 
             num_packets = len(split_LEDs)
             print("Num packets: " + str(num_packets))
@@ -328,3 +334,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
