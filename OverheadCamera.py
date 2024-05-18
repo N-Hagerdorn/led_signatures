@@ -38,8 +38,20 @@ class OverheadCamera:
         # phi indicates a horizontal angle from the x axis
         # theta indicates the angle from the vertical, with 0 degrees pointing straight up
 
-        phi = self.cam_phi + self.field_of_view[0] * (0.5 - x / self.image_size[0])
-        theta = self.cam_theta + self.field_of_view[1] * (y / self.image_size[1] - 0.5)
+        # Find the distance in pixels from the point to the vertical centerline
+        delta_x = self.image_size[0] / 2 - x
+
+        '''
+        Fisheye lens correction
+        The fisheye effect of the RPi camera (Arducam B0449) causes the vertical (y) pixel to not correspond linearly
+        to the theta angle. Through testing, a factor of -0.0021 times the square of the horizontal distance from center
+        was found to correct the y-theta relationship back to linearity.
+        '''
+        corrected_y = y - 0.00021 * math.pow(delta_x, 2)
+        delta_y = corrected_y - self.image_size[1] / 2
+
+        phi = self.cam_phi + self.field_of_view[0] * delta_x / self.image_size[0]
+        theta = self.cam_theta + self.field_of_view[1] * delta_y / self.image_size[1]
         radius = -self.z_offset / math.cos(theta * math.pi / 180)
 
         spherical_point = (radius, theta, phi)
