@@ -1,11 +1,13 @@
 import math
 
-# Field size in feet
-FIELD_LENGTH = 90
-FIELD_WIDTH = 46
+
 
 
 class OverheadCamera:
+
+    # Field size in feet
+    FIELD_LENGTH = 90
+    FIELD_WIDTH = 46
 
     def __init__(self, field_of_view, phi, image_size, midfield_offset, sideline_offset, height, bot_height):
         """
@@ -29,7 +31,7 @@ class OverheadCamera:
         self.z_offset = height - bot_height
 
         # Calculate the vertical angle (theta) and horizontal angle (phi) of the center of the camera's view
-        max_y = sideline_offset + FIELD_WIDTH
+        max_y = sideline_offset + OverheadCamera.FIELD_WIDTH
         vert_fov_max = math.degrees(math.atan(max_y/height))
         self.cam_theta = 180 - vert_fov_max + (self.field_of_view[1] / 2)
         self.cam_phi = phi
@@ -61,7 +63,7 @@ class OverheadCamera:
     def sphericalToCartesian(self, spherical_point):
         z = -self.z_offset
         radius, theta, phi = spherical_point
-        x = radius * math.sin(theta * math.pi / 180) * math.cos(phi * math.pi / 180) + FIELD_LENGTH / 2 - self.x_offset
+        x = radius * math.sin(theta * math.pi / 180) * math.cos(phi * math.pi / 180) + OverheadCamera.FIELD_LENGTH / 2 - self.x_offset
         y = radius * math.sin(theta * math.pi / 180) * math.sin(phi * math.pi / 180) + self.y_offset
 
         cartesian_point = (x, y, z)
@@ -73,7 +75,7 @@ class OverheadCamera:
 
     def cartesianToSpherical(self, cartesian_point):
         x, y = cartesian_point
-        x = x - FIELD_LENGTH / 2 + self.x_offset
+        x = x - OverheadCamera.FIELD_LENGTH / 2 + self.x_offset
         y = y - self.y_offset
         z = -self.z_offset
         r = math.sqrt(x * x + y * y + z * z)

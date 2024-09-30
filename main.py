@@ -4,6 +4,7 @@ import select
 import shutil
 import socket
 import time
+import json
 
 import cv2
 
@@ -21,15 +22,26 @@ def getPitch():
 
 
 # Run parameters
-RUN_SERVER = False  # Will run a server and wait for a client connection if True
-IS_RPI = True  # Set to True for the Raspberry Pi, False to test on a Windows computer
-DISPLAY = True  # Will only open a window to view the camera frames if this is True
-SAVE_FRAME_RATE = 4  # Frame rate to save captured images for later viewing. Will not save if set to 0 or negative.
-HAS_COMPASS = False  # If true, will attempt to use a magnetometer to find the compass heading of the field's major axis
+RUN_SERVER = True  # Will run a server and wait for a client connection if True
+IS_RPI = False  # Set to True for the Raspberry Pi, False to test on a Windows computer
+DISPLAY = True # Will only open a window to view the camera frames if this is True
+SAVE_FRAME_RATE = 0  # Frame rate to save captured images for later viewing. Will not save if set to 0 or negative.
+HAS_COMPASS = False  # If True, will attempt to use a magnetometer to find the compass heading of the field's major axis
+RUN_DETECTION = True    # If True, will execute robot detection algorithm. If not, will
+
+PACKET_SIZE = 1024
 
 
-def constructDataPacket():
-    packet = SAVE_FRAME_RATE
+def configDataPacket():
+
+    data_dict = {
+        'FPS': SAVE_FRAME_RATE,
+        'PACKET_SIZE': PACKET_SIZE
+    }
+
+    data = json.dumps(data_dict)
+
+    return data
 
 
 #  Define a function to perform the contour detection
@@ -58,7 +70,7 @@ def makeVideo(name, image_folder):
 
 CAM_WIDTH = 4656  # Width of the camera frame in pixels
 CAM_HEIGHT = 3496  # Height of the camera frame in pixels
-CAM_FOV_WIDTH = 120  # Width of the camera frame in degrees, also called horizontal field of view
+CAM_FOV_WIDTH = 110  # Width of the camera frame in degrees, also called horizontal field of view
 CAM_FOV_HEIGHT = 95  # Height of the camera frame in degrees, also called vertical field of view
 
 # Configure the camera
@@ -113,7 +125,7 @@ else:
 
     # Limit the camera exposure to detect LEDs while filtering out other light sources
     # -8 seems to work for testing
-    exposure_factor = -8
+    exposure_factor = 0#-8
 
     # Set up the default Windows webcam
     vid = cv2.VideoCapture(0)
@@ -152,6 +164,8 @@ if RUN_SERVER:
 
     conn, address = server_socket.accept()
     print('Accepting TCP session from ' + str(address))
+
+    conn.send(configDataPacket().encode())
 
 
 def main():
@@ -229,28 +243,30 @@ def main():
 
                 cv2.imwrite(session_name + '/' + str(now) + '.jpg', frame)
 
+        bots_in_play = ('X', 'Y', 'STAIR', 'H', 'L')
+        bot_positions = {
+            'CAM': (cam.x_offset + oc.FIELD_LENGTH, cam.y_offset + oc.FIELD_WIDTH)
+        }
+
         groups = botDetector.groupNearbyPoints(LEDs, 1)
-        X = []
-        best_X_score = math.inf
-        for group in groups:
 
-            if len(group) < 1:
-                continue
+        for bot_pattern in bots_in_play:
+            best_score = math.inf
+            best_bot = None
 
-            score = botDetector.detectShape(group, botPatterns.getPattern('Y'))
-            if score < best_X_score:
-                X = group
-                best_X_score = score
-                print('Matching score: ' + str(score))
+            for group in groups:
 
-        LEDs = botDetector.groupCenters([X])
+                if len(group) < 1:
+                    continue
 
-        if len(LEDs) > 0:
-            X_point = LEDs[0]
-            # print(X_point)
-            sphere_point = cam.cartesianToSpherical(X_point)
-            # print(sphere_point)
-            print(cam.sphericalToPixels(sphere_point))
+                score = botDetector.detectShape(group, botPatterns.getPattern(bot_pattern))
+                if score < best_score:
+                    best_bot = group
+                    best_score = score
+                    print('Matching score: ' + str(score))
+
+            bot_position = botDetector.groupCenter(best_bot)
+            bot_positions[bot_pattern] = bot_position
 
         if HAS_COMPASS:
             angle = getPitch()
@@ -259,54 +275,12 @@ def main():
         # If the server is running, transmit the points to the client
         if RUN_SERVER:
 
-            # Split the list of captured LEDs into transmissible chunks
-            split_LEDs = [LEDs[i:i + 50] for i in range(0, len(LEDs), 50)]
+            data = json.dumps(bot_positions)
 
-            num_packets = len(split_LEDs)
-            print("Num packets: " + str(num_packets))
-
-            timeout = 10  # in seconds
-
-            for i in range(num_packets):
-
-                ready_sockets, _, _ = select.select(
-                    [conn], [], [], timeout
-                )
-                if ready_sockets:
-                    response = conn.recv(256).decode()
-                    if response != 'OK':
-                        print('Bad response from client')
-                        break
-
-                else:
-                    print('No response')
-                    break
-
-                data = '['
-                for point in split_LEDs[i]:
-                    formatted_point = '({X:.2f}, {Y:.2f})'.format(X=point[0], Y=point[1])
-                    data += formatted_point + ', '
-
-                data = data[0:-2] + ']'
-
-                print('Sending ' + data)
-                conn.send(data.encode())
-
-            ready_sockets, _, _ = select.select(
-                [conn], [], [], timeout
-            )
-            if ready_sockets:
-                response = conn.recv(256).decode()
-                if response != 'OK':
-                    print('Bad response from client')
-                    break
-                print(response)
-            else:
-                print('No response')
-                break
-
-            data = 'EOT'
+            print('Sending ' + data)
             conn.send(data.encode())
+
+            conn.recv(PACKET_SIZE).decode()
 
         if DISPLAY:
             cv2.imshow('frame', frame)

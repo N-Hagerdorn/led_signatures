@@ -107,6 +107,34 @@ def removeDuplicatePoints(points, tolerance):
     return distinct_points
 
 
+def groupCenter(group):
+    """
+    Convert a group of points into a single point representing its center of mass.
+    :param group:           A group of points
+    :return:                A point which is the center of mass of the group
+    """
+    # A None is not a group
+    if group is None:
+        return None
+
+    # An empty group has no center
+    if len(group) < 1:
+        return None
+
+    # Compute the arithmetic means of the x and y coordinates of the points in the group
+    x_sum = 0
+    y_sum = 0
+
+    for point in group:
+        x_sum += point[0]
+        y_sum += point[1]
+
+    x_mean = x_sum / len(group)
+    y_mean = y_sum / len(group)
+
+    return x_mean, y_mean
+
+
 def groupCenters(groups):
     """
     Convert a list of point groups into a list of their center points.
@@ -117,24 +145,7 @@ def groupCenters(groups):
 
     group_points = []
     for group in groups:
-
-        # An empty group has no center
-        if len(group) < 1:
-            continue
-
-        # Compute the arithmetic means of the x and y coordinates of the points in the group
-        x_sum = 0
-        y_sum = 0
-
-        for point in group:
-            x_sum += point[0]
-            y_sum += point[1]
-
-        x_mean = x_sum / len(group)
-        y_mean = y_sum / len(group)
-
-        group_point = (x_mean, y_mean)
-        group_points.append(group_point)
+        group_points.append(groupCenter(group))
 
     return group_points
 

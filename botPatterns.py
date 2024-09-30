@@ -1,24 +1,28 @@
 import copy
 
 patterns = {
-    'x': [[0, 1, 0],
+    'X': [[0, 1, 0],
           [1, 1, 1],
           [0, 1, 0]],
 
-    'y': [[1, 0, 1],
+    'Y': [[1, 0, 1],
           [0, 1, 0],
           [0, 1, 0]],
 
-    'h': [[1, 0, 1],
+    'H': [[1, 0, 1],
           [1, 1, 1],
           [1, 0, 1]],
 
-    'stair': [[1, 0, 0],
+    'STAIR': [[1, 0, 0],
               [1, 1, 0],
-              [1, 1, 1]]
+              [1, 1, 1]],
+
+    'L': [[1, 0, 0],
+          [1, 0, 0],
+          [1, 1, 1]]
 }
 
 
 def getPattern(pattern_name):
-    pattern = copy.deepcopy(patterns[pattern_name.lower()])
+    pattern = copy.deepcopy(patterns[pattern_name.upper()])
     return pattern
