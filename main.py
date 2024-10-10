@@ -274,13 +274,15 @@ def main():
 
         # If the server is running, transmit the points to the client
         if RUN_SERVER:
+            try:
+                data = json.dumps(bot_positions)
 
-            data = json.dumps(bot_positions)
+                print('Sending ' + data)
+                conn.send(data.encode())
 
-            print('Sending ' + data)
-            conn.send(data.encode())
-
-            conn.recv(PACKET_SIZE).decode()
+                conn.recv(PACKET_SIZE).decode()
+            except BrokenPipeError:
+                print("The client suddenly closed. Continuing to listen...")
 
         if DISPLAY:
             cv2.imshow('frame', frame)
